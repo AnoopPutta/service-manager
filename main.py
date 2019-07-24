@@ -1,5 +1,4 @@
-from providers.provider import ProviderFactory
+from terraform.generator import Generator
 
-pf = ProviderFactory('{"provider": "aws"}')
-pf1 = pf.get_provider()
-pf1.generate_terraform()
+tfgen = Generator('{"provider": "aws"}')
+tfgen.generate_terraform()

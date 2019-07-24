@@ -1,6 +1,8 @@
 import json
 from terrascript import Terrascript, provider
-from aws import rds
+from terrascript.aws import r as awsapi
+from terrascript.azure import r as azureapi
+import aws.generator
 
 
 class BaseProvider(object):
@@ -16,18 +18,18 @@ class BaseProvider(object):
 class AwsProvider(BaseProvider):
 
     def __init__(self, json_input):
+        self.awsApi = awsapi
         super(AwsProvider,self).__init__(json_input)
 
     def generate_terraform(self):
-        self.ts += provider('aws',region='us-east-1')
-        xyz= rds.RdsInstance(self.input_json).get_instance()
-        self.ts.add(xyz)
+        aws.generator.generate_terraform(self.ts,self.awsApi, self.input_json )
         print(self.ts.dump())
 
 
 class AzureProvider(BaseProvider):
 
     def __init__(self, json_input):
+        self.azureApi = azureapi
         super(AzureProvider,self).__init__(json_input)
 
     def generate_terraform(self):
