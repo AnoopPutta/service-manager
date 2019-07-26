@@ -1,4 +1,4 @@
 from terraform.generator import Generator
 
-tfgen = Generator('{"provider": "aws"}')
+tfgen = Generator('{"provider": "azure"}')
 tfgen.generate_terraform()

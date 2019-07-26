@@ -1,4 +1,4 @@
-from providers.providers import ProviderFactory
+from providers.provider_factory import ProviderFactory
 
 
 class Generator(object):
