@@ -26,16 +26,16 @@ class ExampleElbAsgEbs(object):
         name = "rakhs-test"
         tags = {"owner": "rakhs"}
 
-        elb_sg = self.aws_resource.aws_security_group(
+        elb_sg = self.aws_resource.security_group(
             name+"-elb", name='{}-elb'.format(name), vpc_id=vpc_id, tags=tags
         )
 
-        elb_sg_ingress_rule = self.aws_resource.aws_security_group_rule(
+        elb_sg_ingress_rule = self.aws_resource.security_group_rule(
             'allow_http_inbound', security_group_id=elb_sg.id,
             type='ingress', from_port=server_port, to_port=server_port,
             protocol='tcp', cidr_blocks=["0.0.0.0/0"])
 
-        elb_sg_egress_rule = self.aws_resource.aws_security_group_rule(
+        elb_sg_egress_rule = self.aws_resource.security_group_rule(
             'allow_all_outbound', security_group_id=elb_sg.id,
             type='egress', from_port=0, to_port=0,
             protocol='-1', cidr_blocks=["0.0.0.0/0"])
@@ -44,12 +44,12 @@ class ExampleElbAsgEbs(object):
         self.ts.add(elb_sg_ingress_rule)
         self.ts.add(elb_sg_egress_rule)
 
-        launch_config_sg = self.aws_resource.aws_security_group(
+        launch_config_sg = self.aws_resource.security_group(
             name+"-inst", name='{}-instance'.format(name),
             vpc_id=vpc_id, tags=tags
         )
 
-        launch_config_sg_egress_rule = self.aws_resource.aws_security_group_rule(
+        launch_config_sg_egress_rule = self.aws_resource.security_group_rule(
             'allow_lc_http_inbound', security_group_id=launch_config_sg.id,
             type='ingress', from_port=server_port, to_port=server_port,
             protocol='tcp', cidr_blocks=["0.0.0.0/0"])
@@ -99,7 +99,7 @@ class ExampleElbAsgEbs(object):
                 'interval': 30,
                 'target': 'HTTP:{}/'.format(server_port)
             }],
-            "tags": {"Name": "rakhs"}
+            "tags": tags
             }
 
         elastic_lb=elb.ELB(self.aws_resource, self.input_json).add_instance()
@@ -123,9 +123,9 @@ class ExampleElbAsgEbs(object):
         self.ts.add(autoscaling_group)
 
         # attach load balancer to auto scaling group
-        self.ts.add(self.aws_resource.aws_autoscaling_attachment(
-            name, autoscaling_group_name="${aws_autoscaling_group.rakhs-test.id}",
-            elb="${aws_elb.rakhs-test.id}")
+        self.ts.add(self.aws_resource.autoscaling_attachment(
+            name, autoscaling_group_name=autoscaling_group.id,
+            elb=elastic_lb.id)
         )
 
 

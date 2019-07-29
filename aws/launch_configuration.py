@@ -22,21 +22,15 @@ class LaunchConfiguration(object):
                 returns terraform launch configuration resource
             """
 
-        if "ebs_block_device" in self.input_json:
-            return self.aws_resource.aws_launch_configuration(
-                self.input_json["name"],
-                image_id=self.input_json["image_id"],
-                instance_type=self.input_json["instance_type"],
-                security_groups=self.input_json["security_groups"],
-                user_data=self.input_json["user_data"],
-                lifecycle=self.input_json["lifecycle"],
-                ebs_block_device=self.input_json.get("ebs_block_device", {}))
-        else:
-            return self.aws_resource.aws_launch_configuration(
-                self.input_json["name"],
-                image_id=self.input_json["image_id"],
-                instance_type=self.input_json["instance_type"],
-                security_groups=self.input_json["security_groups"],
-                user_data=self.input_json["user_data"],
-                lifecycle=self.input_json["lifecycle"]
-            )
+        kwargs={
+            "image_id": self.input_json["image_id"],
+            "instance_type": self.input_json["instance_type"],
+            "security_groups": self.input_json["security_groups"],
+            "user_data": self.input_json["user_data"],
+            "lifecycle": self.input_json["lifecycle"]
+        }
+
+        if self.input_json.get("ebs_block_device"):
+            kwargs["ebs_block_device"] = self.input_json["ebs_block_device"]
+
+        return self.aws_resource.launch_configuration(self.input_json["name"], **kwargs)
