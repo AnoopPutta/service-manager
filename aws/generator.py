@@ -3,6 +3,7 @@ from aws.rds import *
 from terrascript import provider
 from aws import example_elb_asg
 from aws import example_elb_asg_ebs
+from aws import example_alb_asg
 
 
 def generate_terraform(ts, awsapi, json_input):
@@ -10,6 +11,7 @@ def generate_terraform(ts, awsapi, json_input):
     #xyz= RdsInstance(awsapi, json_input).get_instance()
     #ts.add(xyz)
     #example_elb_asg.ExampleElbAsg(ts, awsapi, json_input).add_instance()
-    example_elb_asg_ebs.ExampleElbAsgEbs(ts, awsapi, json_input).add_instance()
+    #example_elb_asg_ebs.ExampleElbAsgEbs(ts, awsapi, json_input).add_instance()
 
+    example_alb_asg.ExampleElbAsg(ts, awsapi, json_input).add_instance()
     return ts
