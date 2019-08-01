@@ -1,4 +1,5 @@
 from terrascript import output
+from tls import private_key
 from aws import launch_configuration as lc
 from aws import alb
 from aws import alb_listener
@@ -10,7 +11,7 @@ from aws import route_table
 from aws import route
 from aws import subnet
 from aws import key_pair
-from tls import private_key
+from aws import db_subnet_group
 
 
 class ExampleElbAsg(object):
@@ -118,6 +119,19 @@ class ExampleElbAsg(object):
             private_subnet = subnet.Subnet(self.aws_resource, self.input_json).add_instance()
             self.ts.add(private_subnet)
             private_subnets.append(private_subnet)
+
+        # input json for rds db subnet group
+        self.input_json = {
+            "name": "rds",
+            "subnet_ids": [
+                private_subnets[0].id,
+                private_subnets[1].id
+            ],
+            "tags": default_tags
+        }
+        rds_db_subnet_group = db_subnet_group.DBSubnetGroup(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(rds_db_subnet_group)
+        self.ts.add(output('db_subnet_group_name', value=rds_db_subnet_group.id, description='The db subnet group name'))
 
         user_data = """#!/bin/bash
         cat > index.html <<EOF
@@ -246,6 +260,24 @@ class ExampleElbAsg(object):
 
 '''
 {
+  "output": {
+    "db_subnet_group_name": {
+      "description": "The db subnet group name",
+      "value": "${aws_db_subnet_group.rds.id}"
+    },
+    "key_pair_name ": {
+      "description": "The key pair name",
+      "value": "${aws_key_pair.deployer-key.key_name}"
+    },
+    "private_key_pem ": {
+      "description": "The private key data in PEM format",
+      "value": "${tls_private_key.deployer.private_key_pem}"
+    },
+    "public_key_pem": {
+      "description": "The public key data in PEM format",
+      "value": "${tls_private_key.deployer.public_key_pem}"
+    }
+  },
   "provider": {
     "aws": {
       "__DEFAULT__": {
@@ -313,6 +345,20 @@ class ExampleElbAsg(object):
         ]
       }
     },
+    "aws_db_subnet_group": {
+      "rds": {
+        "description": "RDS db subnet group",
+        "name": "rds",
+        "subnet_ids": [
+          "${aws_subnet.private_subnet_az0.id}",
+          "${aws_subnet.private_subnet_az1.id}"
+        ],
+        "tags": {
+          "Owner": "test",
+          "Stack": "test-stack"
+        }
+      }
+    },
     "aws_internet_gateway": {
       "public": {
         "lifecycle": {
@@ -323,6 +369,12 @@ class ExampleElbAsg(object):
           "Stack": "test-stack"
         },
         "vpc_id": "${aws_vpc.main.id}"
+      }
+    },
+    "aws_key_pair": {
+      "deployer-key": {
+        "key_name": "deployer-key",
+        "public_key": "${tls_private_key.deployer.public_key_openssh}"
       }
     },
     "aws_launch_configuration": {
@@ -466,6 +518,12 @@ class ExampleElbAsg(object):
           "Owner": "test",
           "Stack": "test-stack"
         }
+      }
+    },
+    "tls_private_key": {
+      "deployer": {
+        "algorithm": "RSA",
+        "rsa_bits": 4096
       }
     }
   }
