@@ -8,6 +8,7 @@ from aws import internet_gateway as igw
 from aws import route_table
 from aws import route
 from aws import subnet
+from aws import cloud_front as cf
 
 
 class ExampleElbAsg(object):
@@ -19,8 +20,8 @@ class ExampleElbAsg(object):
 
     def add_instance(self):
 
-        owner = "test"
-        stack = "test-stack"
+        owner = "test1"
+        stack = "test1-stack1"
 
         default_tags = {
             "Owner": owner,
@@ -222,6 +223,15 @@ class ExampleElbAsg(object):
             name, autoscaling_group_name=autoscaling_group.id,
             alb_target_group_arn=application_lb_target_group.arn)
         )
+
+        #input_json for CloudFront
+        self.input_json = {
+            "name" : name + '_cloud_front',
+            "domain_name": application_lb.dns_name
+
+        }
+        cloud_front = cf.CloudFront(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(cloud_front)
 
 '''
 {
