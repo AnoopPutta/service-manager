@@ -9,4 +9,4 @@ class Generator(object):
     def generate_terraform(self):
         pf = ProviderFactory(self.json_input)
         pf1 = pf.get_provider()
-        pf1.generate_terraform()
+        return pf1.generate_terraform()

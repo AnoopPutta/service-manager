@@ -11,4 +11,4 @@ class AwsProvider(BaseProvider):
 
     def generate_terraform(self):
         aws.generator.generate_terraform(self.ts,self.awsApi, self.input_json )
-        print(self.ts.dump())
+        return self.ts.dump()
