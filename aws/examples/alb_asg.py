@@ -1,3 +1,5 @@
+from terrascript import output
+from tls import private_key
 from aws import launch_configuration as lc
 from aws import alb
 from aws import alb_listener
@@ -9,6 +11,10 @@ from aws import route_table
 from aws import route
 from aws import subnet
 from aws import cloud_front as cf
+from aws import route_table_association as rta
+from aws import key_pair
+from aws import db_subnet_group
+
 
 
 class ExampleElbAsg(object):
@@ -27,6 +33,24 @@ class ExampleElbAsg(object):
             "Owner": owner,
             "Stack": stack
         }
+
+        # input json for Key pair
+        self.input_json = {
+            "name": 'deployer'
+        }
+        deploy_key = private_key.PrivateKey(self.input_json).add_instance()
+        self.ts.add(deploy_key)
+        self.ts.add(output('public_key_pem', value=deploy_key.public_key_pem, description='The public key data in PEM format'))
+        self.ts.add(output('private_key_pem ', value=deploy_key.private_key_pem , description='The private key data in PEM format'))
+
+        self.input_json = {
+            "name": 'deployer-key',
+            "key_name": 'deployer-key',
+            "public_key": deploy_key.public_key_openssh
+        }
+        key_pair_name = key_pair.KeyPair(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(key_pair_name)
+        self.ts.add(output('key_pair_name ', value=key_pair_name.key_name , description='The key pair name'))
 
         # input json for VPC
         self.input_json = {
@@ -85,6 +109,15 @@ class ExampleElbAsg(object):
             self.ts.add(public_subnet)
             public_subnets.append(public_subnet)
 
+            # input json for route table association
+            self.input_json = {
+                "name": 'public_subnet_az'+str(i) + '_rta',
+                "subnet_id": public_subnet.id,
+                "route_table_id": public_rtb.id
+            }
+            subnet_rta = rta.RouteTableAssociation(self.aws_resource, self.input_json).add_instance()
+            self.ts.add(subnet_rta)
+
         for i in range(0, len(private_subnet_cidrs)):
             # input json for public subnets
             self.input_json = {
@@ -93,11 +126,33 @@ class ExampleElbAsg(object):
                 "cidr_block": private_subnet_cidrs[i],
                 "availability_zone": availability_zones[i],
                 "map_public_ip_on_launch": False,
-                "tags": self.input_json["tags"]
+                "tags": default_tags
             }
             private_subnet = subnet.Subnet(self.aws_resource, self.input_json).add_instance()
             self.ts.add(private_subnet)
             private_subnets.append(private_subnet)
+
+            # input json for route table association
+            self.input_json = {
+                "name": 'private_subnet_az' + str(i) + '_rta',
+                "subnet_id": private_subnet.id,
+                "route_table_id": public_rtb.id
+            }
+            subnet_rta = rta.RouteTableAssociation(self.aws_resource, self.input_json).add_instance()
+            self.ts.add(subnet_rta)
+
+        # input json for rds db subnet group
+        self.input_json = {
+            "name": "rds",
+            "subnet_ids": [
+                private_subnets[0].id,
+                private_subnets[1].id
+            ],
+            "tags": default_tags
+        }
+        rds_db_subnet_group = db_subnet_group.DBSubnetGroup(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(rds_db_subnet_group)
+        self.ts.add(output('db_subnet_group_name', value=rds_db_subnet_group.id, description='The db subnet group name'))
 
         user_data = """#!/bin/bash
         cat > index.html <<EOF
@@ -233,8 +288,28 @@ class ExampleElbAsg(object):
         cloud_front = cf.CloudFront(self.aws_resource, self.input_json).add_instance()
         self.ts.add(cloud_front)
 
+
+
 '''
 {
+  "output": {
+    "db_subnet_group_name": {
+      "description": "The db subnet group name",
+      "value": "${aws_db_subnet_group.rds.id}"
+    },
+    "key_pair_name ": {
+      "description": "The key pair name",
+      "value": "${aws_key_pair.deployer-key.key_name}"
+    },
+    "private_key_pem ": {
+      "description": "The private key data in PEM format",
+      "value": "${tls_private_key.deployer.private_key_pem}"
+    },
+    "public_key_pem": {
+      "description": "The public key data in PEM format",
+      "value": "${tls_private_key.deployer.public_key_pem}"
+    }
+  },
   "provider": {
     "aws": {
       "__DEFAULT__": {
@@ -302,6 +377,20 @@ class ExampleElbAsg(object):
         ]
       }
     },
+    "aws_db_subnet_group": {
+      "rds": {
+        "description": "RDS db subnet group",
+        "name": "rds",
+        "subnet_ids": [
+          "${aws_subnet.private_subnet_az0.id}",
+          "${aws_subnet.private_subnet_az1.id}"
+        ],
+        "tags": {
+          "Owner": "test",
+          "Stack": "test-stack"
+        }
+      }
+    },
     "aws_internet_gateway": {
       "public": {
         "lifecycle": {
@@ -312,6 +401,12 @@ class ExampleElbAsg(object):
           "Stack": "test-stack"
         },
         "vpc_id": "${aws_vpc.main.id}"
+      }
+    },
+    "aws_key_pair": {
+      "deployer-key": {
+        "key_name": "deployer-key",
+        "public_key": "${tls_private_key.deployer.public_key_openssh}"
       }
     },
     "aws_launch_configuration": {
@@ -337,6 +432,24 @@ class ExampleElbAsg(object):
           "Stack": "test-stack"
         },
         "vpc_id": "${aws_vpc.main.id}"
+      }
+    },
+    "aws_route_table_association": {
+      "private_subnet_az0_rta": {
+        "route_table_id": "${aws_route_table.public.id}",
+        "subnet_id": "${aws_subnet.private_subnet_az0.id}"
+      },
+      "private_subnet_az1_rta": {
+        "route_table_id": "${aws_route_table.public.id}",
+        "subnet_id": "${aws_subnet.private_subnet_az1.id}"
+      },
+      "public_subnet_az0_rta": {
+        "route_table_id": "${aws_route_table.public.id}",
+        "subnet_id": "${aws_subnet.public_subnet_az0.id}"
+      },
+      "public_subnet_az1_rta": {
+        "route_table_id": "${aws_route_table.public.id}",
+        "subnet_id": "${aws_subnet.public_subnet_az1.id}"
       }
     },
     "aws_security_group": {
@@ -455,6 +568,12 @@ class ExampleElbAsg(object):
           "Owner": "test",
           "Stack": "test-stack"
         }
+      }
+    },
+    "tls_private_key": {
+      "deployer": {
+        "algorithm": "RSA",
+        "rsa_bits": 4096
       }
     }
   }
