@@ -1,3 +1,4 @@
+from terrascript import output
 from aws import launch_configuration as lc
 from aws import alb
 from aws import alb_listener
@@ -8,6 +9,8 @@ from aws import internet_gateway as igw
 from aws import route_table
 from aws import route
 from aws import subnet
+from aws import key_pair
+from tls import private_key
 
 
 class ExampleElbAsg(object):
@@ -26,6 +29,24 @@ class ExampleElbAsg(object):
             "Owner": owner,
             "Stack": stack
         }
+
+        # input json for Key pair
+        self.input_json = {
+            "name": 'deployer'
+        }
+        deploy_key = private_key.PrivateKey(self.input_json).add_instance()
+        self.ts.add(deploy_key)
+        self.ts.add(output('public_key_pem', value=deploy_key.public_key_pem, description='The public key data in PEM format'))
+        self.ts.add(output('private_key_pem ', value=deploy_key.private_key_pem , description='The private key data in PEM format'))
+
+        self.input_json = {
+            "name": 'deployer-key',
+            "key_name": 'deployer-key',
+            "public_key": deploy_key.public_key_openssh
+        }
+        key_pair_name = key_pair.KeyPair(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(key_pair_name)
+        self.ts.add(output('key_pair_name ', value=key_pair_name.key_name , description='The key pair name'))
 
         # input json for VPC
         self.input_json = {
