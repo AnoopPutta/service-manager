@@ -14,11 +14,9 @@ from aws import cloud_front as cf
 from aws import route_table_association as rta
 from aws import key_pair
 from aws import db_subnet_group
-
-
+from aws import rds
 
 class ExampleElbAsg(object):
-
     def __init__(self, ts, aws_resource, input):
         self.aws_resource = aws_resource
         self.input_json = input
@@ -40,8 +38,10 @@ class ExampleElbAsg(object):
         }
         deploy_key = private_key.PrivateKey(self.input_json).add_instance()
         self.ts.add(deploy_key)
-        self.ts.add(output('public_key_pem', value=deploy_key.public_key_pem, description='The public key data in PEM format'))
-        self.ts.add(output('private_key_pem ', value=deploy_key.private_key_pem , description='The private key data in PEM format'))
+        self.ts.add(
+            output('public_key_pem', value=deploy_key.public_key_pem, description='The public key data in PEM format'))
+        self.ts.add(output('private_key_pem ', value=deploy_key.private_key_pem,
+                           description='The private key data in PEM format'))
 
         self.input_json = {
             "name": 'deployer-key',
@@ -50,7 +50,7 @@ class ExampleElbAsg(object):
         }
         key_pair_name = key_pair.KeyPair(self.aws_resource, self.input_json).add_instance()
         self.ts.add(key_pair_name)
-        self.ts.add(output('key_pair_name ', value=key_pair_name.key_name , description='The key pair name'))
+        self.ts.add(output('key_pair_name ', value=key_pair_name.key_name, description='The key pair name'))
 
         # input json for VPC
         self.input_json = {
@@ -98,7 +98,7 @@ class ExampleElbAsg(object):
         for i in range(0, len(public_subnet_cidrs)):
             # input json for public subnets
             self.input_json = {
-                "name": 'public_subnet_az'+str(i),
+                "name": 'public_subnet_az' + str(i),
                 "vpc_id": main_vpc.id,
                 "cidr_block": public_subnet_cidrs[i],
                 "availability_zone": availability_zones[i],
@@ -111,7 +111,7 @@ class ExampleElbAsg(object):
 
             # input json for route table association
             self.input_json = {
-                "name": 'public_subnet_az'+str(i) + '_rta',
+                "name": 'public_subnet_az' + str(i) + '_rta',
                 "subnet_id": public_subnet.id,
                 "route_table_id": public_rtb.id
             }
@@ -121,7 +121,7 @@ class ExampleElbAsg(object):
         for i in range(0, len(private_subnet_cidrs)):
             # input json for public subnets
             self.input_json = {
-                "name": 'private_subnet_az'+str(i),
+                "name": 'private_subnet_az' + str(i),
                 "vpc_id": main_vpc.id,
                 "cidr_block": private_subnet_cidrs[i],
                 "availability_zone": availability_zones[i],
@@ -152,7 +152,8 @@ class ExampleElbAsg(object):
         }
         rds_db_subnet_group = db_subnet_group.DBSubnetGroup(self.aws_resource, self.input_json).add_instance()
         self.ts.add(rds_db_subnet_group)
-        self.ts.add(output('db_subnet_group_name', value=rds_db_subnet_group.id, description='The db subnet group name'))
+        self.ts.add(
+            output('db_subnet_group_name', value=rds_db_subnet_group.id, description='The db subnet group name'))
 
         user_data = """#!/bin/bash
         cat > index.html <<EOF
@@ -171,7 +172,7 @@ class ExampleElbAsg(object):
         name = stack
 
         elb_sg = self.aws_resource.aws_security_group(
-            name+"-elb", name='{}-elb'.format(name), vpc_id=vpc_id, tags=default_tags
+            name + "-elb", name='{}-elb'.format(name), vpc_id=vpc_id, tags=default_tags
         )
 
         elb_sg_ingress_rule = self.aws_resource.aws_security_group_rule(
@@ -189,7 +190,7 @@ class ExampleElbAsg(object):
         self.ts.add(elb_sg_egress_rule)
 
         launch_config_sg = self.aws_resource.aws_security_group(
-            name+"-inst", name='{}-instance'.format(name),
+            name + "-inst", name='{}-instance'.format(name),
             vpc_id=vpc_id, tags=default_tags
         )
 
@@ -206,7 +207,7 @@ class ExampleElbAsg(object):
         # input json for launch config
         self.input_json = {
             'name': name,
-            "image_id":'ami-0b898040803850657',
+            "image_id": 'ami-0b898040803850657',
             "instance_type": instance_type,
             "security_groups": [elb_sg.id],
             "user_data": template_file,
@@ -219,7 +220,7 @@ class ExampleElbAsg(object):
         self.ts.add(launch_config)
 
         # input json for ALB
-        self.input_json={
+        self.input_json = {
             "name": name,
             "security_groups": [elb_sg.id],
             "subnets": subnets,
@@ -255,8 +256,6 @@ class ExampleElbAsg(object):
             self.aws_resource, self.input_json).add_instance()
         self.ts.add(application_lb_listener)
 
-
-
         # input json for Autoscaling Group
         self.input_json = {
             "name": name,
@@ -268,9 +267,9 @@ class ExampleElbAsg(object):
                 'key': 'Name',
                 'value': name,
                 'propagate_at_launch': True
-             }]
+            }]
         }
-        autoscaling_group= asg.AutoscalingGroup(self.aws_resource, self.input_json).add_instance()
+        autoscaling_group = asg.AutoscalingGroup(self.aws_resource, self.input_json).add_instance()
         self.ts.add(autoscaling_group)
 
         # attach ALB target group to auto scaling group
@@ -279,16 +278,30 @@ class ExampleElbAsg(object):
             alb_target_group_arn=application_lb_target_group.arn)
         )
 
-        #input_json for CloudFront
+        # input_json for CloudFront
         self.input_json = {
-            "name" : name + '_cloud_front',
+            "name": name + '_cloud_front',
             "domain_name": application_lb.dns_name
 
         }
         cloud_front = cf.CloudFront(self.aws_resource, self.input_json).add_instance()
         self.ts.add(cloud_front)
+        self.ts.add(
+            output('cloud_front_endpoint', value=cloud_front.domain_name, description='CloudFroint end-point'))
 
+        # input_json for RDS
+        self.input_json = {
+            "name": name + '_rds',
+            "identifier": "testid",
+            "tags": default_tags,
+            "security_group_names" : ['default'],
+            "db_subnet_group_name": rds_db_subnet_group.id
+        }
 
+        rds_instance = rds.RdsInstance(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(rds_instance)
+        self.ts.add(
+            output('rds_endpoint', value=rds_instance.address, description='RDS end-point'))
 
 '''
 {
