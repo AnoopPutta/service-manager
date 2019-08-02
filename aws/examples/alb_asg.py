@@ -15,6 +15,9 @@ from aws import route_table_association as rta
 from aws import key_pair
 from aws import db_subnet_group
 from aws import rds
+from aws import ebs_volume
+from aws import ec2_instance
+from aws import volume_attachment
 
 class ExampleElbAsg(object):
     def __init__(self, ts, aws_resource, input):
@@ -175,44 +178,35 @@ class ExampleElbAsg(object):
             public_subnets[1].id
         ]
         name = stack
+        ebs_size = 1
+        ebs_volume_type = "standard"
+        ebs_volume_dev_id = "/dev/sda2"
 
-        # Default Security group for Load Balancers
-        lb_default_sg = self.aws_resource.aws_security_group(
+
+        # Default Security group for Load Balancers and ASG
+        default_sg = self.aws_resource.aws_security_group(
             name + "-elb", name='{}-elb'.format(name), vpc_id=vpc_id, tags=default_tags
         )
 
-        lb_default_sg_ingress_rule = self.aws_resource.aws_security_group_rule(
-            'allow_http_inbound', security_group_id=lb_default_sg.id,
+        default_sg_ingress_rule = self.aws_resource.aws_security_group_rule(
+            'allow_http_inbound', security_group_id=default_sg.id,
             type='ingress', from_port=server_port, to_port=server_port,
             protocol='tcp', cidr_blocks=["0.0.0.0/0"])
 
-        lb_default_sg_egress_rule = self.aws_resource.aws_security_group_rule(
-            'allow_all_outbound', security_group_id=lb_default_sg.id,
+        default_sg_egress_rule = self.aws_resource.aws_security_group_rule(
+            'allow_all_outbound', security_group_id=default_sg.id,
             type='egress', from_port=0, to_port=0,
             protocol='-1', cidr_blocks=["0.0.0.0/0"])
 
-        self.ts.add(lb_default_sg)
-        self.ts.add(lb_default_sg_ingress_rule)
-        self.ts.add(lb_default_sg_egress_rule)
+        self.ts.add(default_sg)
+        self.ts.add(default_sg_ingress_rule)
+        self.ts.add(default_sg_egress_rule)
 
-        # Default Security Group for asg Launch Configuration
-        lc_default_sg = self.aws_resource.aws_security_group(
-            name + "-inst", name='{}-instance'.format(name),
-            vpc_id=vpc_id, tags=default_tags
-        )
-
-        lc_default_sg_egress_rule = self.aws_resource.aws_security_group_rule(
-            'allow_lc_http_inbound', security_group_id=lc_default_sg.id,
-            type='ingress', from_port=server_port, to_port=server_port,
-            protocol='tcp', cidr_blocks=["0.0.0.0/0"])
-
-        self.ts.add(lc_default_sg_egress_rule)
-        self.ts.add(lc_default_sg)
-
+        #################################### OHS Start #################################
         # OHS: Input json for ALB
         self.input_json = {
             "name": name,
-            "security_groups": [lb_default_sg.id],
+            "security_groups": [default_sg.id],
             "subnets": subnets,
             "tags": default_tags
         }
@@ -246,14 +240,13 @@ class ExampleElbAsg(object):
             self.aws_resource, self.input_json).add_instance()
         self.ts.add(application_lb_listener)
 
-        template_file = user_data.format(server_port)
-        # OHS: Input json for ALB Autoscaling group launch config
+        # OHS: Input json for launch config
         self.input_json = {
             'name': name,
             "image_id": image_id,
             "instance_type": instance_type,
-            "security_groups": [lb_default_sg.id],
-            "user_data": template_file,
+            "security_groups": [default_sg.id],
+            "user_data": user_data,
             "lifecycle": {
                 'create_before_destroy': True
             },
@@ -284,6 +277,41 @@ class ExampleElbAsg(object):
             name, autoscaling_group_name=autoscaling_group.id,
             alb_target_group_arn=application_lb_target_group.arn)
         )
+
+        #################################### OAM Start #################################
+        #Zone1
+        i = 1
+        for s in private_subnets:
+            self.input_json = {
+                "name": name+str(i),
+                "availability_zone": availability_zones[i-1], # availablity zone 1, TODO: improve this
+                "size": ebs_size,
+                "type": ebs_volume_type,
+                "tags": default_tags
+            }
+            ebs_vol = ebs_volume.EbsVolume(self.aws_resource, self.input_json).add_instance()
+            self.ts.add(ebs_vol)
+
+            self.input_json = {
+                "name": name+str(i),
+                "ami": image_id,
+                "subnet_id": s.id,
+                "instance_type": instance_type,
+                "key_name": key_pair_name.key_name,
+                "user_data": user_data,
+                "tags": default_tags
+            }
+            inst = ec2_instance.Ec2Instance(self.aws_resource, self.input_json).add_instance()
+            self.ts.add(inst)
+
+            self.input_json = {
+                "name": name+str(i),
+                "volume_id": ebs_vol.id,
+                "instance_id": inst.id,
+                "device_name": ebs_volume_dev_id
+            }
+            self.ts.add(volume_attachment.VolumeAttachment(self.aws_resource, self.input_json).add_instance())
+            i += 1
 
         # input_json for CloudFront
         self.input_json = {
