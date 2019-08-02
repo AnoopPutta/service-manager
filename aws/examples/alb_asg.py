@@ -176,59 +176,43 @@ class ExampleElbAsg(object):
         ]
         name = stack
 
-        elb_sg = self.aws_resource.aws_security_group(
+        # Default Security group for Load Balancers
+        lb_default_sg = self.aws_resource.aws_security_group(
             name + "-elb", name='{}-elb'.format(name), vpc_id=vpc_id, tags=default_tags
         )
 
-        elb_sg_ingress_rule = self.aws_resource.aws_security_group_rule(
-            'allow_http_inbound', security_group_id=elb_sg.id,
+        lb_default_sg_ingress_rule = self.aws_resource.aws_security_group_rule(
+            'allow_http_inbound', security_group_id=lb_default_sg.id,
             type='ingress', from_port=server_port, to_port=server_port,
             protocol='tcp', cidr_blocks=["0.0.0.0/0"])
 
-        elb_sg_egress_rule = self.aws_resource.aws_security_group_rule(
-            'allow_all_outbound', security_group_id=elb_sg.id,
+        lb_default_sg_egress_rule = self.aws_resource.aws_security_group_rule(
+            'allow_all_outbound', security_group_id=lb_default_sg.id,
             type='egress', from_port=0, to_port=0,
             protocol='-1', cidr_blocks=["0.0.0.0/0"])
 
-        self.ts.add(elb_sg)
-        self.ts.add(elb_sg_ingress_rule)
-        self.ts.add(elb_sg_egress_rule)
+        self.ts.add(lb_default_sg)
+        self.ts.add(lb_default_sg_ingress_rule)
+        self.ts.add(lb_default_sg_egress_rule)
 
-        launch_config_sg = self.aws_resource.aws_security_group(
+        # Default Security Group for asg Launch Configuration
+        lc_default_sg = self.aws_resource.aws_security_group(
             name + "-inst", name='{}-instance'.format(name),
             vpc_id=vpc_id, tags=default_tags
         )
 
-        launch_config_sg_egress_rule = self.aws_resource.aws_security_group_rule(
-            'allow_lc_http_inbound', security_group_id=launch_config_sg.id,
+        lc_default_sg_egress_rule = self.aws_resource.aws_security_group_rule(
+            'allow_lc_http_inbound', security_group_id=lc_default_sg.id,
             type='ingress', from_port=server_port, to_port=server_port,
             protocol='tcp', cidr_blocks=["0.0.0.0/0"])
 
-        self.ts.add(launch_config_sg_egress_rule)
-        self.ts.add(launch_config_sg)
+        self.ts.add(lc_default_sg_egress_rule)
+        self.ts.add(lc_default_sg)
 
-        template_file = user_data.format(server_port)
-
-        # input json for launch config
-        self.input_json = {
-            'name': name,
-            "image_id": image_id,
-            "instance_type": instance_type,
-            "security_groups": [elb_sg.id],
-            "user_data": template_file,
-            "lifecycle": {
-                'create_before_destroy': True
-            },
-            "key_name": key_pair_name.key_name
-        }
-        launch_config = lc.LaunchConfiguration(
-            self.aws_resource, self.input_json).add_instance()
-        self.ts.add(launch_config)
-
-        # input json for ALB
+        # OHS: Input json for ALB
         self.input_json = {
             "name": name,
-            "security_groups": [elb_sg.id],
+            "security_groups": [lb_default_sg.id],
             "subnets": subnets,
             "tags": default_tags
         }
@@ -236,7 +220,7 @@ class ExampleElbAsg(object):
         application_lb = alb.ALB(self.aws_resource, self.input_json).add_instance()
         self.ts.add(application_lb)
 
-        # input json for ALB Target Group
+        # OHS: Input json for ALB Target Group
         self.input_json = {
             "name": name,
             "port": server_port,
@@ -247,7 +231,7 @@ class ExampleElbAsg(object):
             self.aws_resource, self.input_json).add_instance()
         self.ts.add(application_lb_target_group)
 
-        # input json for ALB Listener
+        # OHS: Input json for ALB Listener
         self.input_json = {
             "name": name,
             "load_balancer_arn": application_lb.arn,
@@ -262,7 +246,24 @@ class ExampleElbAsg(object):
             self.aws_resource, self.input_json).add_instance()
         self.ts.add(application_lb_listener)
 
-        # input json for Autoscaling Group
+        template_file = user_data.format(server_port)
+        # OHS: Input json for ALB Autoscaling group launch config
+        self.input_json = {
+            'name': name,
+            "image_id": image_id,
+            "instance_type": instance_type,
+            "security_groups": [lb_default_sg.id],
+            "user_data": template_file,
+            "lifecycle": {
+                'create_before_destroy': True
+            },
+            "key_name": key_pair_name.key_name
+        }
+        launch_config = lc.LaunchConfiguration(
+            self.aws_resource, self.input_json).add_instance()
+        self.ts.add(launch_config)
+
+        # OHS: Input json for ALB Autoscaling Group
         self.input_json = {
             "name": name,
             "launch_configuration": launch_config.id,
@@ -278,7 +279,7 @@ class ExampleElbAsg(object):
         autoscaling_group = asg.AutoscalingGroup(self.aws_resource, self.input_json).add_instance()
         self.ts.add(autoscaling_group)
 
-        # attach ALB target group to auto scaling group
+        # OHS: Attach ALB target group to auto scaling group
         self.ts.add(self.aws_resource.aws_autoscaling_attachment(
             name, autoscaling_group_name=autoscaling_group.id,
             alb_target_group_arn=application_lb_target_group.arn)
