@@ -22,5 +22,5 @@ class RdsInstance(object):
         json = self.input_json
         inst = self.aws_resource.aws_db_instance(name, identifier=identifier, instance_class='db.t2.micro',storage_type='gp2',engine='oracle-se1', engine_version='11.2.0.4.v6'
                               , license_model = 'license-included',allocated_storage=10,username="oracle",password='password',db_subnet_group_name=subnet_grp_name,
-                              port=1521,vpc_security_group_ids=vpc_security_group_ids,tags=tags)
+                              port=1521,vpc_security_group_ids=vpc_security_group_ids,skip_final_snapshot=True,tags=tags)
         return inst
