@@ -16,6 +16,6 @@ class Route(object):
             "lifecycle": {"create_before_destroy": True}
         }
 
-        return self.aws_resource.aws_route_table(
+        return self.aws_resource.aws_route(
             self.input_json["name"], **kwargs
         )

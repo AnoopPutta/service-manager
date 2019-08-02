@@ -297,7 +297,7 @@ class ExampleElbAsg(object):
             "name": name + '_rds',
             "identifier": "testid",
             "tags": default_tags,
-            "security_group_names" : ['default'],
+            "vpc_security_group_ids" : [main_vpc.default_security_group_id],
             "db_subnet_group_name": rds_db_subnet_group.id
         }
 

@@ -16,14 +16,11 @@ class RdsInstance(object):
         instance_type = self.input_json.get("instance_type")
         if instance_type is None:
             instance_type = 'db.t2.micro'
-
-        security_groups = self.input_json.get("security_group_names")
-        if security_groups is None:
-            security_groups = ['default']
+        vpc_security_group_ids = self.input_json.get("vpc_security_group_ids")
         subnet_grp_name = self.input_json.get("db_subnet_group_name")
 
         json = self.input_json
         inst = self.aws_resource.aws_db_instance(name, identifier=identifier, instance_class='db.t2.micro',storage_type='gp2',engine='oracle-se1', engine_version='11.2.0.4.v6'
                               , license_model = 'license-included',allocated_storage=10,username="oracle",password='password',db_subnet_group_name=subnet_grp_name,
-                              port=1521,security_group_names=security_groups,tags=tags)
+                              port=1521,vpc_security_group_ids=vpc_security_group_ids,tags=tags)
         return inst
