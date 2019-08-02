@@ -33,4 +33,9 @@ class LaunchConfiguration(object):
         if self.input_json.get("ebs_block_device"):
             kwargs["ebs_block_device"] = self.input_json["ebs_block_device"]
 
+        if self.input_json.get("key_name"):
+            kwargs["key_name"] = self.input_json["key_name"]
+
+
+
         return self.aws_resource.launch_configuration(self.input_json["name"], **kwargs)

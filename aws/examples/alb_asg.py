@@ -155,7 +155,8 @@ class ExampleElbAsg(object):
         self.ts.add(
             output('db_subnet_group_name', value=rds_db_subnet_group.id, description='The db subnet group name'))
 
-        user_data = """#!/bin/bash
+        user_data = """
+        #!/bin/bash
         yum install httpd -y
         service httpd start
         chkconfig httpd on
@@ -165,9 +166,10 @@ class ExampleElbAsg(object):
         EOL
         """
 
-        server_port = 8080
+        server_port = 80
         vpc_id = main_vpc.id
         instance_type = "t2.micro"
+        image_id = "ami-0b898040803850657"
         subnets = [
             public_subnets[0].id,
             public_subnets[1].id
@@ -210,13 +212,14 @@ class ExampleElbAsg(object):
         # input json for launch config
         self.input_json = {
             'name': name,
-            "image_id": 'ami-0b898040803850657',
+            "image_id": image_id,
             "instance_type": instance_type,
             "security_groups": [elb_sg.id],
             "user_data": template_file,
             "lifecycle": {
                 'create_before_destroy': True
-            }
+            },
+            "key_name": key_pair_name.key_name
         }
         launch_config = lc.LaunchConfiguration(
             self.aws_resource, self.input_json).add_instance()
@@ -236,7 +239,7 @@ class ExampleElbAsg(object):
         # input json for ALB Target Group
         self.input_json = {
             "name": name,
-            "port": 8080,
+            "port": server_port,
             "protocol": "HTTP",
             "vpc_id": vpc_id
         }
@@ -248,7 +251,7 @@ class ExampleElbAsg(object):
         self.input_json = {
             "name": name,
             "load_balancer_arn": application_lb.arn,
-            "port": 8080,
+            "port": server_port,
             "protocol": "HTTP",
             "default_action": {
                 "target_group_arn": application_lb_target_group.arn,
@@ -264,7 +267,7 @@ class ExampleElbAsg(object):
             "name": name,
             "launch_configuration": launch_config.id,
             "min_size": 2,
-            "max_size": 3,
+            "max_size": 2,
             "vpc_zone_identifier": subnets,
             "tag": [{
                 'key': 'Name',
