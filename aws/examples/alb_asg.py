@@ -20,6 +20,8 @@ from aws import ec2_instance
 from aws import volume_attachment
 from aws import eip
 from aws import nat_gateway
+from aws import security_group as sg
+from aws import security_group_rule as sg_rule
 
 class ExampleElbAsg(object):
     def __init__(self, ts, aws_resource, input):
@@ -234,28 +236,49 @@ class ExampleElbAsg(object):
 
 
         # Default Security group for Load Balancers and ASG
-        default_sg = self.aws_resource.aws_security_group(
-            name + "-elb", name='{}-elb'.format(name), vpc_id=vpc_id, tags=default_tags
-        )
-
-        default_sg_ingress_rule = self.aws_resource.aws_security_group_rule(
-            'allow_http_inbound', security_group_id=default_sg.id,
-            type='ingress', from_port=server_port, to_port=server_port,
-            protocol='tcp', cidr_blocks=["0.0.0.0/0"])
-
-        ssh_sg_ingress_rule = self.aws_resource.aws_security_group_rule(
-            'allow_ssh_inbound', security_group_id=default_sg.id,
-            type='ingress', from_port=22, to_port=22,
-            protocol='tcp', cidr_blocks=["0.0.0.0/0"])
-
-        default_sg_egress_rule = self.aws_resource.aws_security_group_rule(
-            'allow_all_outbound', security_group_id=default_sg.id,
-            type='egress', from_port=0, to_port=0,
-            protocol='-1', cidr_blocks=["0.0.0.0/0"])
-
+        self.input_json = {
+            "name": 'elb-asg',
+            "vpc_id": main_vpc.id,
+            "description": "Default lb sg",
+            "tags": default_tags
+        }
+        default_sg = sg.SecurityGroup(self.aws_resource, self.input_json).add_instance()
         self.ts.add(default_sg)
+
+        self.input_json = {
+            "name": 'allow_http_inbound',
+            "type": 'ingress',
+            "security_group_id": default_sg.id,
+            "from_port": server_port,
+            "to_port": server_port,
+            "protocol": 'tcp',
+            "cidr_blocks": ["0.0.0.0/0"]
+        }
+        default_sg_ingress_rule = sg_rule.SecurityGroupRule(self.aws_resource, self.input_json).add_instance()
         self.ts.add(default_sg_ingress_rule)
+
+        self.input_json = {
+            "name": 'allow_ssh_inbound',
+            "type": 'ingress',
+            "security_group_id": default_sg.id,
+            "from_port": 22,
+            "to_port": 22,
+            "protocol": 'tcp',
+            "cidr_blocks": ["0.0.0.0/0"]
+        }
+        ssh_sg_ingress_rule = sg_rule.SecurityGroupRule(self.aws_resource, self.input_json).add_instance()
         self.ts.add(ssh_sg_ingress_rule)
+
+        self.input_json = {
+            "name": 'allow_all_outbound',
+            "type": 'egress',
+            "security_group_id": default_sg.id,
+            "from_port": 0,
+            "to_port": 0,
+            "protocol": '-1',
+            "cidr_blocks": ["0.0.0.0/0"]
+        }
+        default_sg_egress_rule = sg_rule.SecurityGroupRule(self.aws_resource, self.input_json).add_instance()
         self.ts.add(default_sg_egress_rule)
 
         #################################### OHS Start #################################
