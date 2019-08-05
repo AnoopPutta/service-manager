@@ -193,6 +193,11 @@ class ExampleElbAsg(object):
             type='ingress', from_port=server_port, to_port=server_port,
             protocol='tcp', cidr_blocks=["0.0.0.0/0"])
 
+        ssh_sg_ingress_rule = self.aws_resource.aws_security_group_rule(
+            'allow_ssh_inbound', security_group_id=default_sg.id,
+            type='ingress', from_port=22, to_port=22,
+            protocol='tcp', cidr_blocks=["0.0.0.0/0"])
+
         default_sg_egress_rule = self.aws_resource.aws_security_group_rule(
             'allow_all_outbound', security_group_id=default_sg.id,
             type='egress', from_port=0, to_port=0,
@@ -200,6 +205,7 @@ class ExampleElbAsg(object):
 
         self.ts.add(default_sg)
         self.ts.add(default_sg_ingress_rule)
+        self.ts.add(ssh_sg_ingress_rule)
         self.ts.add(default_sg_egress_rule)
 
         #################################### OHS Start #################################
@@ -293,12 +299,13 @@ class ExampleElbAsg(object):
             self.ts.add(ebs_vol)
 
             self.input_json = {
-                "name": name+str(i),
+                "name": name+'-'+str(i)+'-private',
                 "ami": image_id,
                 "subnet_id": s.id,
                 "instance_type": instance_type,
                 "key_name": key_pair_name.key_name,
                 "user_data": user_data,
+                "security_groups": [default_sg.id],
                 "tags": default_tags
             }
             inst = ec2_instance.Ec2Instance(self.aws_resource, self.input_json).add_instance()
@@ -312,7 +319,7 @@ class ExampleElbAsg(object):
             }
             self.ts.add(volume_attachment.VolumeAttachment(self.aws_resource, self.input_json).add_instance())
             i += 1
-
+        '''
         # input_json for CloudFront
         self.input_json = {
             "name": name + '_cloud_front',
@@ -337,3 +344,4 @@ class ExampleElbAsg(object):
         self.ts.add(rds_instance)
         self.ts.add(
             output('rds_endpoint', value=rds_instance.address, description='RDS end-point'))
+        '''

@@ -15,7 +15,8 @@ class Ec2Instance(object):
             "instance_type": self.input_json["instance_type"],
             "key_name": self.input_json["key_name"],
             "user_data": self.input_json["user_data"],
-            "tags": self.input_json["tags"]
+            "tags": self.input_json["tags"],
+            "security_groups": self.input_json["security_groups"]
         }
 
         if self.input_json.get("ebs_block_device"):
