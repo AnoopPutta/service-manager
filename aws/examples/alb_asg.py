@@ -31,11 +31,9 @@ class ExampleElbAsg(object):
 
     def add_instance(self):
 
-        owner = "test1"
-        stack = "test1-stack1"
-
+        stack = self.input_json["stack"]
         default_tags = {
-            "Owner": owner,
+            "Owner": self.input_json["owner"],
             "Stack": stack
         }
 
