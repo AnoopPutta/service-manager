@@ -1,4 +1,5 @@
 from terrascript import output
+from terrascript.local.r import local_file
 from tls import private_key
 from aws import launch_configuration as lc
 from aws import alb
@@ -22,6 +23,7 @@ from aws import eip
 from aws import nat_gateway
 from aws import security_group as sg
 from aws import security_group_rule as sg_rule
+from aws import s3_bucket_object
 
 class ExampleElbAsg(object):
     def __init__(self, ts, aws_resource, input):
@@ -32,6 +34,7 @@ class ExampleElbAsg(object):
     def add_instance(self):
 
         stack = self.input_json["stack"]
+        bucket = self.input_json["bucket"]
         default_tags = {
             "Owner": self.input_json["owner"],
             "Stack": stack
@@ -43,10 +46,30 @@ class ExampleElbAsg(object):
         }
         deploy_key = private_key.PrivateKey(self.input_json).add_instance()
         self.ts.add(deploy_key)
-        self.ts.add(
-            output('public_key_pem', value=deploy_key.public_key_pem, description='The public key data in PEM format'))
-        self.ts.add(output('private_key_pem ', value=deploy_key.private_key_pem,
-                           description='The private key data in PEM format'))
+
+        # Upload public key to S3
+        self.input_json = {
+            "name": 'public_key_pem',
+            "bucket": bucket,
+            "key": stack + '/sitekey/public_key.pem',
+            "content": deploy_key.public_key_pem
+        }
+        public_key_path = s3_bucket_object.S3BucketObject(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(public_key_path)
+        self.ts.add(output('public_key_path', value='./sitekey/public_key.pem'))
+        self.ts.add(local_file('public_key', filename='./sitekey/public_key.pem', content=deploy_key.public_key_pem))
+
+        # Upload private key to S3
+        self.input_json = {
+            "name": 'private_key_pem',
+            "bucket": bucket,
+            "key": stack + '/sitekey/private_key.pem',
+            "content": deploy_key.private_key_pem
+        }
+        private_key_path = s3_bucket_object.S3BucketObject(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(private_key_path)
+        self.ts.add(output('private_key_path', value='./sitekey/private_key.pem'))
+        self.ts.add(local_file('private_key', filename='./sitekey/private_key.pem', content=deploy_key.private_key_pem))
 
         self.input_json = {
             "name": 'deployer-key',

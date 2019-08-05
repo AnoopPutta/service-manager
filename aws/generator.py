@@ -10,7 +10,9 @@ def generate_terraform(ts, awsapi, json_input):
     ts += provider('aws',region='us-east-1')
 
     stack = json_input["stack"]
-    s3_backend = backend('s3', bucket='sm-state', key=stack+'/terraform.state', region='us-east-1')
+    s3_bucket = 'sm-state'
+    json_input['bucket'] = s3_bucket
+    s3_backend = backend('s3', bucket=s3_bucket, key=stack + '/terraform.state', region='us-east-1')
     tf = terraform(backend=s3_backend)
     ts.add(tf)
 
