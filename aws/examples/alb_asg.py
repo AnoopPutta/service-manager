@@ -18,6 +18,8 @@ from aws import rds
 from aws import ebs_volume
 from aws import ec2_instance
 from aws import volume_attachment
+from aws import eip
+from aws import nat_gateway
 
 class ExampleElbAsg(object):
     def __init__(self, ts, aws_resource, input):
@@ -82,6 +84,15 @@ class ExampleElbAsg(object):
         public_rtb = route_table.RouteTable(self.aws_resource, self.input_json).add_instance()
         self.ts.add(public_rtb)
 
+        # input json for private route table
+        self.input_json = {
+            "name": 'private',
+            "vpc_id": main_vpc.id,
+            "tags": default_tags
+        }
+        private_rtb = route_table.RouteTable(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(private_rtb)
+
         # input json for internet gateway route
         self.input_json = {
             "name": 'igw-route',
@@ -95,6 +106,7 @@ class ExampleElbAsg(object):
         public_subnet_cidrs = ['10.10.1.0/24', '10.10.2.0/24']
         private_subnet_cidrs = ['10.10.11.0/24', '10.10.12.0/24']
         availability_zones = ['us-east-1a', 'us-east-1b']
+        nat_cidrs = '10.10.0.32/28'
 
         public_subnets = []
         private_subnets = []
@@ -157,6 +169,44 @@ class ExampleElbAsg(object):
         self.ts.add(rds_db_subnet_group)
         self.ts.add(
             output('db_subnet_group_name', value=rds_db_subnet_group.id, description='The db subnet group name'))
+
+        # EIP for nat
+        self.input_json = {
+            "name": "nat"
+        }
+        eip_nat = eip.Eip(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(eip_nat)
+
+        # Subnet for nat
+        self.input_json = {
+            "name": 'nat_public_subnet',
+            "vpc_id": main_vpc.id,
+            "cidr_block": nat_cidrs,
+            "availability_zone": availability_zones[0],
+            "map_public_ip_on_launch": True,
+            "tags": default_tags
+        }
+        nat_subnet = subnet.Subnet(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(nat_subnet)
+
+        # NAT gw
+        self.input_json = {
+            "name": "nat",
+            "allocation_id": eip_nat.id,
+            "subnet_id": nat_subnet.id
+        }
+        nat_gw = nat_gateway.NatGateway(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(nat_gw)
+
+        # input json for nat gateway route
+        self.input_json = {
+            "name": 'nat-gw-route',
+            "route_table_id": private_rtb.id,
+            "destination_cidr_block": '0.0.0.0/0',
+            "nat_gateway_id": nat_gw.id
+        }
+        nat_gw_route = route.Route(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(nat_gw_route)
 
         user_data = """
         #!/bin/bash
