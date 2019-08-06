@@ -174,7 +174,7 @@ class ExampleElbAsg(object):
             self.input_json = {
                 "name": 'private_subnet_az' + str(i) + '_rta',
                 "subnet_id": private_subnet.id,
-                "route_table_id": public_rtb.id
+                "route_table_id": private_rtb.id
             }
             subnet_rta = rta.RouteTableAssociation(self.aws_resource, self.input_json).add_instance()
             self.ts.add(subnet_rta)
@@ -211,6 +211,15 @@ class ExampleElbAsg(object):
         }
         nat_subnet = subnet.Subnet(self.aws_resource, self.input_json).add_instance()
         self.ts.add(nat_subnet)
+
+        # input json for route table association
+        self.input_json = {
+            "name": 'nat_public_subnet_rta',
+            "subnet_id": nat_subnet.id,
+            "route_table_id": public_rtb.id
+        }
+        nat_subnet_rta = rta.RouteTableAssociation(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(nat_subnet_rta)
 
         # NAT gw
         self.input_json = {
