@@ -24,6 +24,8 @@ from aws import nat_gateway
 from aws import security_group as sg
 from aws import security_group_rule as sg_rule
 from aws import s3_bucket_object
+from aws import route53_zone
+from aws import route53_record
 
 class ExampleElbAsg(object):
     def __init__(self, ts, aws_resource, input):
@@ -33,6 +35,7 @@ class ExampleElbAsg(object):
 
     def add_instance(self):
 
+        region = self.input_json["region"]
         stack = self.input_json["stack"]
         bucket = self.input_json["bucket"]
         default_tags = {
@@ -125,6 +128,17 @@ class ExampleElbAsg(object):
         }
         igw_route = route.Route(self.aws_resource, self.input_json).add_instance()
         self.ts.add(igw_route)
+
+        # input json for route53 private zone
+        self.input_json = {
+            "name": 'root',
+            "domain_name": 'test1.com',
+            "vpc_id": main_vpc.id,
+            "vpc_region": region,
+            "tags": default_tags
+        }
+        private_zone = route53_zone.Route53Zone(self.aws_resource, self.input_json).add_instance()
+        self.ts.add(private_zone)
 
         public_subnet_cidrs = ['10.10.1.0/24', '10.10.2.0/24']
         private_subnet_cidrs = ['10.10.11.0/24', '10.10.12.0/24']
@@ -408,11 +422,20 @@ class ExampleElbAsg(object):
                 "instance_type": instance_type,
                 "key_name": key_pair_name.key_name,
                 "user_data": user_data,
-                "security_groups": [default_sg.id],
+                "vpc_security_group_ids": [default_sg.id],
                 "tags": default_tags
             }
             inst = ec2_instance.Ec2Instance(self.aws_resource, self.input_json).add_instance()
             self.ts.add(inst)
+
+            self.input_json = {
+                "name": name+str(i),
+                "dns_name": name+'-'+str(i)+'-private',
+                "zone_id": private_zone.id,
+                "records": [inst.private_ip],
+            }
+            a_record = route53_record.Route53Record(self.aws_resource, self.input_json).add_instance()
+            self.ts.add(a_record)
 
             self.input_json = {
                 "name": name+str(i),
