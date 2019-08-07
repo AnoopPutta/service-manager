@@ -7,7 +7,8 @@ from aws.examples import alb_asg
 
 
 def generate_terraform(ts, awsapi, json_input):
-    ts += provider('aws',region='us-east-1')
+    region = json_input["region"]
+    ts += provider('aws',region=region)
 
     stack = json_input["stack"]
     s3_bucket = 'sm-state'

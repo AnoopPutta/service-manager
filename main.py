@@ -1,6 +1,6 @@
 from terraform.generator import Generator
 
-tfgen = Generator('{"provider": "aws", "stack": "test1-stack1", "owner": "test1"}')
+tfgen = Generator('{"provider": "aws", "region": "us-east-1", "stack": "test1-stack1", "owner": "test1"}')
 tf_json = tfgen.generate_terraform()
 
 # Write terraform json to file
